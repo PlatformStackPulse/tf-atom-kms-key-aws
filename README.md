@@ -6,9 +6,37 @@
 
 ---
 
-## Purpose
+Terraform atom that provisions a customer-managed AWS KMS encryption key with [tf-label](https://github.com/PlatformStackPulse/tf-label) naming, tagging, and an `enabled` on/off switch.
 
-Terraform atom: AWS KMS Key - creates a customer-managed encryption key
+## Features
+
+- Customer-managed **KMS key** (`aws_kms_key`) with a `tf-label`-derived description and tags.
+- **Automatic annual key rotation** toggle (`enable_key_rotation`, defaults to `true`).
+- Configurable **deletion window** (`deletion_window_in_days`, validated to the 7–30 day range).
+- Selectable **key usage** (`ENCRYPT_DECRYPT`, `SIGN_VERIFY`, `GENERATE_VERIFY_MAC`) and **key spec** (`customer_master_key_spec`) for symmetric or asymmetric keys.
+- **Multi-region** key support (`multi_region`).
+- Full `tf-label` context: consistent naming (`namespace-environment-stage-name`) and tagging across the fleet.
+- **`enabled` switch** — set `enabled = false` to create no resources (all outputs return `null`).
+
+## Usage
+
+```hcl
+module "kms_key" {
+  source = "git::https://github.com/PlatformStackPulse/tf-atom-kms-key-aws.git?ref=v1.0.0"
+
+  # tf-label context (naming + tagging)
+  namespace = "eg"
+  stage     = "prod"
+  name      = "app-data"
+
+  # KMS configuration
+  description             = "Encryption key for application data"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+  key_usage               = "ENCRYPT_DECRYPT"
+  multi_region            = false
+}
+```
 
 ## Module Documentation
 
@@ -74,3 +102,22 @@ Terraform atom: AWS KMS Key - creates a customer-managed encryption key
 | <a name="output_key_arn"></a> [key\_arn](#output\_key\_arn) | ARN of the KMS key |
 | <a name="output_key_id"></a> [key\_id](#output\_key\_id) | ID of the KMS key |
 <!-- END_TF_DOCS -->
+
+## Tests
+
+Unit tests use a **mock AWS provider** — no real AWS calls or credentials are required. They assert on plan-known values (the `tf-label` id, planned resource counts, and the `enabled` switch behaviour).
+
+```bash
+# Run unit tests (mock provider, no AWS credentials)
+terraform init -backend=false
+terraform test -test-directory=tests/unit
+
+# Or via the Makefile
+make test-unit
+```
+
+Integration tests (in `tests/integration/`, requiring real AWS credentials) run with:
+
+```bash
+make test-integration
+```
